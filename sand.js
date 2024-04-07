@@ -4,8 +4,13 @@ var width, height;
 var stats;
 
 var world = [];
-var worldState = [];
-var sandColors = [[0, 0, 0], [168, 139, 34], [217, 199, 37], [196, 160, 96]]
+var downState = [];
+var upState = [];
+var particleColors = [[0, 0, 0], [168, 139, 34], [217, 199, 37], [196, 160, 96], [84, 47, 29], [61, 31, 16], [51, 34, 26], [134, 186, 184], [167, 204, 203], [124, 196, 194]]
+var particleTypes = [[0], [1, 2, 3], [4, 5, 6], [7, 8, 9]];
+var currentType = 1;
+var fallingParticle = [1, 2, 3];
+var floatingParticle = [7, 8, 9];
 var stateGridSize = 10;
 var stateWidth, stateHeight;
 
@@ -35,16 +40,20 @@ function Clear()
         world = Array(width * height);
         stateWidth = Math.ceil(width / stateGridSize);
         stateHeight = Math.ceil(height / stateGridSize);
-        worldState = Array(stateWidth * stateHeight);
+        downState = Array(stateWidth * stateHeight);
+        upState = Array(stateWidth * stateHeight);
     }
-    for (var x = 0; x < worldState.length; x++)
-        worldState[x] = true;
+    for (var x = 0; x < downState.length; x++)
+    {
+        downState[x] = true;
+        upState[x] = true;
+    }
     for (var x = 0; x < width; x++)
     {
         for (var y = 0; y < height; y++)
         {
             world[x + y * width] = 0;
-            SetPixel(x, y, sandColors[0]);
+            SetPixel(x, y, particleColors[0]);
         }
     }
 }
@@ -76,9 +85,20 @@ function PlaceRandom(cx, cy, radius, possibleTypes)
                 SetWorld(x, y, t);
                 var sx = Math.floor(x / stateGridSize);
                 var sy = Math.floor(y / stateGridSize);
-                worldState[sx + sy * stateWidth] = true;
+                downState[sx + sy * stateWidth] = true;
+                upState[sx + sy * stateWidth] = true;
                 if (y % stateGridSize == stateGridSize - 1 && sy < stateHeight - 1) // We are at the bottom of the grid block, let's make the next one dirty too
-                    worldState[sx + (sy + 1) * stateWidth] = true;
+                {
+                    downState[sx + (sy + 1) * stateWidth] = true;
+                    upState[sx + (sy + 1) * stateWidth] = true;
+                }
+                if (y % stateGridSize == 0 && sy > 0) // We are at the top of the grid block, let's make the next one dirty too
+                {
+                    downState[sx + (sy - 1) * stateWidth] = true;
+                    upState[sx + (sy - 1) * stateWidth] = true;
+                }
+
+                SetPixel(x, y, particleColors[t]);
             }
         }
     }
@@ -98,14 +118,107 @@ function SetWorld(x, y, t)
     world[x + y * width] = t;
 }
 
-function HandleSand()
+function HandleParticleUp()
+{
+
+    // From bottom to top for falling particles
+    for (var sy = 0; sy < stateHeight; sy++)
+    {
+        for (var sx = 0; sx < stateWidth; sx++)
+        {
+            if (upState[sx + sy * stateWidth] == false)
+                continue;
+            var isDirty = false;
+            for (var by = 0; by < stateGridSize; by++)
+            {
+                for (var bx = 0; bx < stateGridSize; bx++)
+                {
+                    var x = sx * stateGridSize + bx;
+                    var y = sy * stateGridSize + by;
+                    if (y >= height || x >= width)
+                        continue;
+
+                    var t = GetWorld(x, y);
+                    if (t == 0) // We are free we can handle it
+                    {
+                        t = GetWorld(x, y + 1); // Just above
+                        var tl = GetWorld(x - 1, y + 1); // Left top
+                        var tr = GetWorld(x + 1, y + 1); // Left right
+                        var modified = false;
+                        if (floatingParticle.indexOf(t) != -1) // Must fall
+                        {
+                            SetWorld(x, y + 1, 0);
+                            SetWorld(x, y, t);
+
+                            SetPixel(x, y + 1, particleColors[0]);
+                            SetPixel(x, y, particleColors[t]);
+                            isDirty = true;
+                            modified = true;
+                        }
+                        else if (floatingParticle.indexOf(tl) != -1)
+                        {
+                            SetWorld(x - 1, y + 1, 0);
+                            SetWorld(x, y, tl);
+
+                            SetPixel(x - 1, y + 1, particleColors[0]);
+                            SetPixel(x, y, particleColors[tl]);
+                            isDirty = true;
+
+                            //if (bx == 0 && sx > 0) {
+                            if (sx > 0)
+                            {
+                                if (by == 0 && sy < stateHeight - 1)
+                                    upState[(sx - 1) + (sy + 1) * stateWidth] = true;
+                                upState[(sx - 1) + sy * stateWidth] = true;
+                            }
+                            modified = true;
+                        }
+                        else if (floatingParticle.indexOf(tr) != -1 && GetWorld(x + 1, y) != 0)
+                        {
+                            SetWorld(x + 1, y + 1, 0);
+                            SetWorld(x, y, tr);
+
+                            SetPixel(x + 1, y + 1, particleColors[0]);
+                            SetPixel(x, y, particleColors[tr]);
+                            isDirty = true;
+
+                            if (sx < stateWidth - 1)
+                            {
+                                if (by == 0 && sy < stateHeight - 1)
+                                    upState[(sx + 1) + (sy + 1) * stateWidth] = true;
+                                upState[(sx + 1) + sy * stateWidth] = true;
+                            }
+                            modified = true;
+                        }
+
+                        if (modified)
+                        {
+                            if (bx == 0 && sx > 0)
+                                upState[(sx - 1) + sy * stateWidth] = true;
+                            if (bx == stateGridSize - 1 && sx < stateWidth - 1)
+                                upState[(sx + 1) + sy * stateWidth] = true;
+                            if (by == 0 && sy > 0)
+                                upState[sx + (sy - 1) * stateWidth] = true;
+                            if (by == stateGridSize - 1 && sy < stateHeight - 1)
+                                upState[sx + (sy + 1) * stateWidth] = true;
+                        }
+
+                    }
+                }
+            }
+            upState[sx + sy * stateWidth] = isDirty;
+        }
+    }
+}
+
+function HandleParticleDown()
 {
     // From bottom to top for falling particles
     for (var sy = stateHeight - 1; sy >= 0; sy--)
     {
         for (var sx = 0; sx < stateWidth; sx++)
         {
-            if (worldState[sx + sy * stateWidth] == false)
+            if (downState[sx + sy * stateWidth] == false)
                 continue;
             var isDirty = false;
             for (var by = stateGridSize - 1; by >= 0; by--)
@@ -124,48 +237,48 @@ function HandleSand()
                         var tl = GetWorld(x - 1, y - 1); // Left top
                         var tr = GetWorld(x + 1, y - 1); // Left right
                         var modified = false;
-                        if (t != 0) // Must fall
+                        if (fallingParticle.indexOf(t) != -1) // Must fall
                         {
                             SetWorld(x, y - 1, 0);
                             SetWorld(x, y, t);
 
-                            SetPixel(x, y - 1, sandColors[0]);
-                            SetPixel(x, y, sandColors[t]);
+                            SetPixel(x, y - 1, particleColors[0]);
+                            SetPixel(x, y, particleColors[t]);
                             isDirty = true;
                             modified = true;
                         }
-                        else if (tl != 0)
+                        else if (fallingParticle.indexOf(tl) != -1)
                         {
                             SetWorld(x - 1, y - 1, 0);
                             SetWorld(x, y, tl);
 
-                            SetPixel(x - 1, y - 1, sandColors[0]);
-                            SetPixel(x, y, sandColors[tl]);
+                            SetPixel(x - 1, y - 1, particleColors[0]);
+                            SetPixel(x, y, particleColors[tl]);
                             isDirty = true;
 
                             //if (bx == 0 && sx > 0) {
                             if (sx > 0)
                             {
                                 if (by == 0 && sy > 0)
-                                    worldState[(sx - 1) + (sy - 1) * stateWidth] = true;
-                                worldState[(sx - 1) + sy * stateWidth] = true;
+                                    downState[(sx - 1) + (sy - 1) * stateWidth] = true;
+                                downState[(sx - 1) + sy * stateWidth] = true;
                             }
                             modified = true;
                         }
-                        else if (tr != 0 && GetWorld(x + 1, y) != 0)
+                        else if (fallingParticle.indexOf(tr) != -1 && GetWorld(x + 1, y) != 0)
                         {
                             SetWorld(x + 1, y - 1, 0);
                             SetWorld(x, y, tr);
 
-                            SetPixel(x + 1, y - 1, sandColors[0]);
-                            SetPixel(x, y, sandColors[tr]);
+                            SetPixel(x + 1, y - 1, particleColors[0]);
+                            SetPixel(x, y, particleColors[tr]);
                             isDirty = true;
 
                             if (sx < stateWidth - 1)
                             {
                                 if (by == 0 && sy > 0)
-                                    worldState[(sx + 1) + (sy - 1) * stateWidth] = true;
-                                worldState[(sx + 1) + sy * stateWidth] = true;
+                                    downState[(sx + 1) + (sy - 1) * stateWidth] = true;
+                                downState[(sx + 1) + sy * stateWidth] = true;
                             }
                             modified = true;
                         }
@@ -173,19 +286,19 @@ function HandleSand()
                         if (modified)
                         {
                             if (bx == 0 && sx > 0)
-                                worldState[(sx - 1) + sy * stateWidth] = true;
+                                downState[(sx - 1) + sy * stateWidth] = true;
                             if (bx == stateGridSize - 1 && sx < stateWidth - 1)
-                                worldState[(sx + 1) + sy * stateWidth] = true;
+                                downState[(sx + 1) + sy * stateWidth] = true;
                             if (by == 0 && sy > 0)
-                                worldState[sx + (sy - 1) * stateWidth] = true;
+                                downState[sx + (sy - 1) * stateWidth] = true;
                             if (by == stateGridSize - 1 && sy < stateHeight - 1)
-                                worldState[sx + (sy + 1) * stateWidth] = true;
+                                downState[sx + (sy + 1) * stateWidth] = true;
                         }
 
                     }
                 }
             }
-            worldState[sx + sy * stateWidth] = isDirty;
+            downState[sx + sy * stateWidth] = isDirty;
         }
     }
 }
@@ -194,11 +307,15 @@ function LogicLoop()
 {
     if (mx !== null)
     {
-        PlaceRandom(mx, my, 10, [1, 2, 3]);
+        PlaceRandom(mx, my, 10, particleTypes[currentType]);
     }
 
     for (var i = 0; i < 20; i++)
-        HandleSand();
+    {
+        HandleParticleDown();
+        HandleParticleUp();
+    }
+
     PaintBackbuffer();
 
     requestAnimationFrame(LogicLoop);
@@ -242,7 +359,7 @@ function Resize()
                 newWorld[x + y * width] = world[x + y * w];
             else
                 newWorld[x + y * width] = 0;
-            SetPixel(x, y, sandColors[newWorld[x + y * width]]);
+            SetPixel(x, y, particleColors[newWorld[x + y * width]]);
         }
     }
     world = newWorld;
@@ -256,7 +373,7 @@ function Resize()
 
     for (var x = 0; x < newState.length; x++)
         newState[x] = true;
-    worldState = newState;
+    downState = newState;
 }
 
 function MouseDown(evt)
@@ -279,6 +396,27 @@ function MouseUp(evt)
     my = null;
 }
 
+function KeyDown(evt)
+{
+    switch (evt.key)
+    {
+        case "0": // Clear
+            currentType = 0;
+            break;
+        case "1": // Sand => falling
+            currentType = 1;
+            break;
+        case "2": // Dirt => Fixed
+            currentType = 2;
+            break;
+        case "3": // Air => Floating
+            currentType = 3;
+            break;
+        default:
+            break;
+    }
+}
+
 function Init()
 {
     var canvas = document.getElementById("canvas");
@@ -297,6 +435,7 @@ function Init()
     addEventListener("resize", Resize);
     canvas.addEventListener("mousedown", MouseDown);
     canvas.addEventListener("mouseup", MouseUp);
+    document.addEventListener("keydown", KeyDown);
 }
 
 addEventListener("load", Init);

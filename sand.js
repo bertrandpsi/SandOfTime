@@ -415,6 +415,18 @@ function KeyDown(evt)
         default:
             break;
     }
+
+    for (var t of document.querySelectorAll("#particleSelector > div"))
+        t.classList.remove("selected");
+    document.querySelector('[data-particle="' + currentType + '"]').classList.add("selected");    
+}
+
+function ParticleSelector(evt)
+{
+    currentType = parseInt(evt.target.getAttribute("data-particle"));
+    for (var t of document.querySelectorAll("#particleSelector > div"))
+        t.classList.remove("selected");
+    document.querySelector('[data-particle="' + currentType + '"]').classList.add("selected");
 }
 
 function Init()
@@ -436,6 +448,11 @@ function Init()
     canvas.addEventListener("mousedown", MouseDown);
     canvas.addEventListener("mouseup", MouseUp);
     document.addEventListener("keydown", KeyDown);
+
+    var types = document.querySelectorAll("#particleSelector > div");
+    for (var t of types)
+        t.addEventListener("click", ParticleSelector);
+    document.querySelector('[data-particle="' + currentType + '"]').classList.add("selected");
 }
 
 addEventListener("load", Init);

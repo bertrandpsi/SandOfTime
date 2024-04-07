@@ -434,7 +434,29 @@ function ParticleSelector(evt)
     }
     else
     {
-        Clear();
+        window[evt.target.getAttribute("onclick")](evt);
+    }
+}
+
+function Flip(evt)
+{
+    for (var x = 0; x < downState.length; x++)
+    {
+        downState[x] = true;
+        upState[x] = true;
+    }
+
+    var mid = Math.floor(height / 2);
+    for (var x = 0; x < width; x++)
+    {
+        for (var y = 0; y < mid; y++)
+        {
+            var a = world[x + y * width];
+            world[x + y * width] = world[x + (height - 1 - y) * width];
+            world[x + (height - 1 - y) * width] = a;
+            SetPixel(x, y, particleColors[world[x + y * width]]);
+            SetPixel(x, (height - 1 - y), particleColors[world[x + (height - 1 - y) * width]]);
+        }
     }
 }
 

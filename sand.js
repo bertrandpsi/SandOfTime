@@ -65,6 +65,8 @@ function PaintBackbuffer()
 
 function PlaceRandom(cx, cy, radius, possibleTypes)
 {
+    document.getElementById("help").style.display = "none";
+
     for (var x = cx - radius; x <= cx + radius; x++)
     {
         for (var y = cy - radius; y <= cy + radius; y++)
@@ -418,15 +420,22 @@ function KeyDown(evt)
 
     for (var t of document.querySelectorAll("#particleSelector > div"))
         t.classList.remove("selected");
-    document.querySelector('[data-particle="' + currentType + '"]').classList.add("selected");    
+    document.querySelector('[data-particle="' + currentType + '"]').classList.add("selected");
 }
 
 function ParticleSelector(evt)
 {
-    currentType = parseInt(evt.target.getAttribute("data-particle"));
-    for (var t of document.querySelectorAll("#particleSelector > div"))
-        t.classList.remove("selected");
-    document.querySelector('[data-particle="' + currentType + '"]').classList.add("selected");
+    if (evt.target.getAttribute("data-particle"))
+    {
+        currentType = parseInt(evt.target.getAttribute("data-particle"));
+        for (var t of document.querySelectorAll("#particleSelector > div"))
+            t.classList.remove("selected");
+        document.querySelector('[data-particle="' + currentType + '"]').classList.add("selected");
+    }
+    else
+    {
+        Clear();
+    }
 }
 
 function Init()

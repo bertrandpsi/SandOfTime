@@ -38,3 +38,14 @@ body
 {
     outline: solid 3px red;
 }
+
+#help
+{
+    position: absolute;
+    top: 50vh;
+    left: calc(50vw - 200px);
+    width: 500px;
+    padding: 5px;
+    border: solid 1px #b9b5a7;
+    text-align: justify;
+}
